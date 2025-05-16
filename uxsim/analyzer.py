@@ -399,7 +399,7 @@ class Analyzer:
         ylim : tuple of int, optional
             The y-axis limits for the plot. Default is None, which means no limit.
         fig_return : bool, optional
-            If True, return the list of figure objects. Default is False.
+            If True, return the dict of figure objects. Default is False.
         """
         if s.W.vehicle_logging_timestep_interval != 1:
             warnings.warn(
@@ -423,7 +423,7 @@ class Analyzer:
 
         s.compute_edie_state()
 
-        figs = []
+        figs = {}
         for lll in tqdm(links, disable=(s.W.print_mode == 0)):
             l = s.W.get_link(lll)
 
@@ -470,7 +470,7 @@ class Analyzer:
             if s.W.show_mode:
                 fig.show()
             if fig_return:
-                figs.append(fig)
+                figs[l.name] = fig
             else:
                 plt.close(fig)
 
