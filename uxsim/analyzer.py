@@ -379,7 +379,9 @@ class Analyzer:
             s.time_space_diagram_traj_links(linkslist=[lll], figsize=figsize, plot_signal=plot_signal, xlim=xlim, ylim=ylim)
     
     @catch_exceptions_and_warn()
-    def time_space_diagram_density(s, links=None, figsize=(12,4), plot_signal=True, xlim=None, ylim=None):
+    def time_space_diagram_density(
+        s, links=None, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, fig_return=False
+    ):
         """
         Draws the time-space diagram of traffic density on specified links.
 
@@ -392,16 +394,25 @@ class Analyzer:
             The size of the figure to be plotted, default is (12,4).
         plot_signal : bool, optional
             Plot the downstream signal red light.
+        xlim : tuple of int, optional
+            The x-axis limits for the plot. Default is None, which means no limit.
+        ylim : tuple of int, optional
+            The y-axis limits for the plot. Default is None, which means no limit.
+        fig_return : bool, optional
+            If True, return the list of figure objects. Default is False.
         """
         if s.W.vehicle_logging_timestep_interval != 1:
-            warnings.warn("vehicle_logging_timestep_interval is not 1. The plot is not exactly accurate.", LoggingWarning)
+            warnings.warn(
+                "vehicle_logging_timestep_interval is not 1. The plot is not exactly accurate.",
+                LoggingWarning,
+            )
 
-        #リンク密度の時空間図
+        # リンク密度の時空間図
         s.W.print(" drawing traffic states...")
         s.compute_edie_state()
 
-        #対象がlistであればOKで，単一な場合にはlistに変換する．未指定であれば全部にする．
-        if links == None:
+        # 対象がlistであればOKで，単一な場合にはlistに変換する．未指定であれば全部にする．
+        if links is None:
             links = s.W.LINKS
         try:
             iter(links)
@@ -412,36 +423,59 @@ class Analyzer:
 
         s.compute_edie_state()
 
-        for lll in tqdm(links, disable=(s.W.print_mode==0)):
+        figs = []
+        for lll in tqdm(links, disable=(s.W.print_mode == 0)):
             l = s.W.get_link(lll)
 
-            plt.figure(figsize=figsize)
-            plt.title(l)
-            plt.imshow(l.k_mat.T, origin="lower", aspect="auto",
-                extent=(0, int(s.W.TMAX/l.edie_dt)*l.edie_dt, 0, int(l.length/l.edie_dx)*l.edie_dx),
-                interpolation="none", vmin=0, vmax=1/l.delta, cmap="inferno")
+            fig, ax = plt.subplots(figsize=figsize)
+            im = ax.imshow(
+                l.k_mat.T,
+                origin="lower",
+                aspect="auto",
+                extent=(
+                    0,
+                    int(s.W.TMAX / l.edie_dt) * l.edie_dt,
+                    0,
+                    int(l.length / l.edie_dx) * l.edie_dx,
+                ),
+                interpolation="none",
+                vmin=0,
+                vmax=1 / l.delta,
+                cmap="inferno",
+            )
+            ax.set_title(str(l))
             if plot_signal:
-                signal_log = [i*s.W.DELTAT for i in lange(l.end_node.signal_log) if (l.end_node.signal_log[i] not in l.signal_group and len(l.end_node.signal)>1)]
-                plt.plot(signal_log, [l.length for i in lange(signal_log)], "r.")
-            plt.colorbar().set_label("density (veh/m)")
-            plt.xlabel("time (s)")
-            plt.ylabel("space (m)")
-            if xlim == None:
-                plt.xlim([0, s.W.TMAX])
+                signal_log = [
+                    i * s.W.DELTAT
+                    for i in lange(l.end_node.signal_log)
+                    if (l.end_node.signal_log[i] not in l.signal_group and len(l.end_node.signal) > 1)
+                ]
+                ax.plot(signal_log, [l.length for _ in lange(signal_log)], "r.")
+            cbar = fig.colorbar(im, ax=ax)
+            cbar.set_label("density (veh/m)")
+            ax.set_xlabel("time (s)")
+            ax.set_ylabel("space (m)")
+            if xlim is None:
+                ax.set_xlim([0, s.W.TMAX])
             else:
-                plt.xlim(xlim)
-            if ylim == None:
-                plt.ylim([0, l.length])
+                ax.set_xlim(xlim)
+            if ylim is None:
+                ax.set_ylim([0, l.length])
             else:
-                plt.ylim(ylim)
-            plt.tight_layout()
+                ax.set_ylim(ylim)
+            fig.tight_layout()
 
             if s.W.save_mode:
-                plt.savefig(f"out{s.W.name}/tsd_k_{l.name}.png")
+                fig.savefig(f"out{s.W.name}/tsd_k_{l.name}.png")
             if s.W.show_mode:
-                plt.show()
+                fig.show()
+            if fig_return:
+                figs.append(fig)
             else:
-                plt.close("all")
+                plt.close(fig)
+
+        if fig_return:
+            return figs
 
     @catch_exceptions_and_warn()
     def time_space_diagram_traj_links(s, linkslist, figsize=(12,4), plot_signal=True, xlim=None, ylim=None):
