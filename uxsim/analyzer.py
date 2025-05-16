@@ -478,7 +478,9 @@ class Analyzer:
             return figs
 
     @catch_exceptions_and_warn()
-    def time_space_diagram_traj_links(s, linkslist, figsize=(12,4), plot_signal=True, xlim=None, ylim=None):
+    def time_space_diagram_traj_links(
+        s, linkslist, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, return_fig=False
+    ):
         """
         Draws the time-space diagram of vehicle trajectories for vehicles on concective links.
 
@@ -489,16 +491,21 @@ class Analyzer:
         figsize : tuple of int, optional
             The size of the figure to be plotted, default is (12,4).
         plot_signal : bool, optional
-            Plot the signal red light. 
+            Plot the signal red light.
+        return_fig : bool, optional
+            If True, return a dict of {link_name: fig} for each links group.
         """
         if s.W.vehicle_logging_timestep_interval != 1:
-            warnings.warn("vehicle_logging_timestep_interval is not 1. The plot is not exactly accurate.", LoggingWarning)
-            
-        #複数リンクの連続した車両軌跡の時空間図
+            warnings.warn(
+                "vehicle_logging_timestep_interval is not 1. The plot is not exactly accurate.",
+                LoggingWarning,
+            )
+
+        # 複数リンクの連続した車両軌跡の時空間図
         s.W.print(" drawing trajectories...")
         s.compute_accurate_traj()
 
-        #リンクリストのリストであればそのまま，そうでなければリスト化
+        # リンクリストのリストであればそのまま，そうでなければリスト化
         try:
             iter(linkslist[0])
             if type(linkslist[0]) == str:
@@ -506,6 +513,7 @@ class Analyzer:
         except TypeError:
             linkslist = [linkslist]
 
+        fig_dict = {}
         for links in linkslist:
             linkdict = dict()
             d = 0
@@ -514,44 +522,64 @@ class Analyzer:
                 linkdict[l] = d
                 d += l.length
 
-            plt.figure(figsize=figsize)
+            fig, ax = plt.subplots(figsize=figsize)
             for ll in links:
                 l = s.W.get_link(ll)
                 for i in range(len(l.xss)):
-                    lane_shift = l.ls[i]/l.number_of_lanes*s.W.DELTAT/2 #vehicle with the same lane is plotted slightly shifted
-                    plt.plot(np.array(l.tss[i])+lane_shift, np.array(l.xss[i])+linkdict[l], "-", c=l.cs[i], lw=0.5)
+                    lane_shift = l.ls[i] / l.number_of_lanes * s.W.DELTAT / 2  # vehicle with the same lane is plotted slightly shifted
+                    ax.plot(
+                        np.array(l.tss[i]) + lane_shift,
+                        np.array(l.xss[i]) + linkdict[l],
+                        "-",
+                        c=l.cs[i],
+                        lw=0.5,
+                    )
                 if plot_signal:
-                    signal_log = [i*s.W.DELTAT for i in lange(l.end_node.signal_log) if (l.end_node.signal_log[i] not in l.signal_group and len(l.end_node.signal)>1)]
-                    plt.plot(signal_log, [l.length+linkdict[l] for i in lange(signal_log)], "r.")
+                    signal_log = [
+                        i * s.W.DELTAT
+                        for i in lange(l.end_node.signal_log)
+                        if (l.end_node.signal_log[i] not in l.signal_group and len(l.end_node.signal) > 1)
+                    ]
+                    ax.plot(
+                        signal_log,
+                        [l.length + linkdict[l] for i in lange(signal_log)],
+                        "r.",
+                    )
             for l in linkdict.keys():
-                plt.plot([0, s.W.TMAX], [linkdict[l], linkdict[l]], "k--", lw=0.7)
-                plt.plot([0, s.W.TMAX], [linkdict[l]+l.length, linkdict[l]+l.length], "k--", lw=0.7)
-                plt.text(0, linkdict[l]+l.length/2, l.name, va="center", c="b")
-                plt.text(0, linkdict[l], l.start_node.name, va="center", c="g")
-                plt.text(0, linkdict[l]+l.length, l.end_node.name, va="center", c="g")
-            plt.xlabel("time (s)")
-            plt.ylabel("space (m)")
-            plt.xlim([0, s.W.TMAX])
-            if xlim == None:
-                plt.xlim([0, s.W.TMAX])
-            else:
-                plt.xlim(xlim)
-            if ylim == None:
-                pass
-            else:
-                plt.ylim(ylim)
-            plt.grid()
-            plt.tight_layout()
+                ax.plot([0, s.W.TMAX], [linkdict[l], linkdict[l]], "k--", lw=0.7)
+                ax.plot(
+                    [0, s.W.TMAX],
+                    [linkdict[l] + l.length, linkdict[l] + l.length],
+                    "k--",
+                    lw=0.7,
+                )
+                ax.text(0, linkdict[l] + l.length / 2, l.name, va="center", c="b")
+                ax.text(0, linkdict[l], l.start_node.name, va="center", c="g")
+                ax.text(0, linkdict[l] + l.length, l.end_node.name, va="center", c="g")
+            ax.set_xlabel("time (s)")
+            ax.set_ylabel("space (m)")
+            ax.set_xlim([0, s.W.TMAX] if xlim is None else xlim)
+            if ylim is not None:
+                ax.set_ylim(ylim)
+            ax.grid()
+            fig.tight_layout()
             if s.W.save_mode:
                 if len(links) == 1:
-                    plt.savefig(f"out{s.W.name}/tsd_traj_{s.W.get_link(links[0]).name}.png")
+                    fig.savefig(f"out{s.W.name}/tsd_traj_{s.W.get_link(links[0]).name}.png")
                 else:
-                    plt.savefig(f"out{s.W.name}/tsd_traj_links_{'-'.join([s.W.get_link(l).name for l in links])}.png")
+                    fig.savefig(
+                        f"out{s.W.name}/tsd_traj_links_{'-'.join([s.W.get_link(l).name for l in links])}.png"
+                    )
             if s.W.show_mode:
-                plt.show()
+                fig.show()
+            if return_fig:
+                key = "-".join([s.W.get_link(l).name for l in links])
+                fig_dict[key] = fig
             else:
-                plt.close("all")
+                plt.close(fig)
 
+        if return_fig:
+            return fig_dict
     @catch_exceptions_and_warn()
     def cumulative_curves(s, links=None, figsize=(6,4)):
         """
