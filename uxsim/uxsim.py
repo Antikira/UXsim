@@ -2534,7 +2534,16 @@ class World:
             W.print = noprint
 
     @catch_exceptions_and_warn()
-    def show_network(W, width=1, left_handed=1, figsize=(6,6), network_font_size=10, node_size=6, show_id=True):
+    def show_network(
+        W,
+        width=1,
+        left_handed=1,
+        figsize=(6, 6),
+        network_font_size=10,
+        node_size=6,
+        show_id=True,
+        fig=None,
+    ):
         """
         Visualizes the entire transportation network shape.
 
@@ -2552,53 +2561,80 @@ class World:
             The font size of the node and link labels. If 0, no labels will be displayed. Default is 10.
         node_size : int, optional
             The size of the nodes in the visualization. Default is 6.
+        show_id : bool, optional
+            If True, the node and link IDs will be displayed. If False, only the names will be displayed. Default is True.
+        fig : matplotlib.figure.Figure, optional
+            The figure object to plot on. If None, a new figure will be created. Default is None.
         """
-        
+
         os.makedirs(f"out{W.name}", exist_ok=True)
 
         plt.rcParams["font.family"] = get_font_for_matplotlib()
-
-        plt.figure(figsize=figsize)
-        plt.subplot(111, aspect="equal")
+        if fig is None:
+            fig = plt.figure(figsize=figsize)
+            return_fig = False
+        else:
+            return_fig = True
+        ax=fig.subplots(111, aspect="equal")
         for n in W.NODES:
-            plt.plot(n.x, n.y, "o", c="gray", ms=node_size, zorder=10)
+            ax.plot(n.x, n.y, "o", c="gray", ms=node_size, zorder=10)
             if network_font_size > 0:
                 if show_id:
                     label = f"{n.id}: {n.name}"
                 else:
                     label = f"{n.name}"
-                plt.text(n.x, n.y, label, c="g", horizontalalignment="center", verticalalignment="top", zorder=20, fontsize=network_font_size)
+                ax.text(
+                    n.x,
+                    n.y,
+                    label,
+                    c="g",
+                    horizontalalignment="center",
+                    verticalalignment="top",
+                    zorder=20,
+                    fontsize=network_font_size,
+                )
         for l in W.LINKS:
             x1, y1 = l.start_node.x, l.start_node.y
             x2, y2 = l.end_node.x, l.end_node.y
-            vx, vy = (y1-y2)*0.05, (x2-x1)*0.05
+            vx, vy = (y1 - y2) * 0.05, (x2 - x1) * 0.05
             if not left_handed:
                 vx, vy = -vx, -vy
-            #簡略モード
-            xmid1, ymid1 = (2*x1+x2)/3+vx, (2*y1+y2)/3+vy
-            xmid2, ymid2 = (x1+2*x2)/3+vx, (y1+2*y2)/3+vy
-            plt.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], "gray", lw=width, zorder=6, solid_capstyle="butt")
+            # 簡略モード
+            xmid1, ymid1 = (2 * x1 + x2) / 3 + vx, (2 * y1 + y2) / 3 + vy
+            xmid2, ymid2 = (x1 + 2 * x2) / 3 + vx, (y1 + 2 * y2) / 3 + vy
+            ax.plot(
+                [x1, xmid1, xmid2, x2],
+                [y1, ymid1, ymid2, y2],
+                "gray",
+                lw=width,
+                zorder=6,
+                solid_capstyle="butt",
+            )
             if network_font_size > 0:
                 if show_id:
                     label = f"{l.id}: {l.name}"
                 else:
                     label = f"{l.name}"
-                plt.text(xmid1, ymid1, label, c="b", zorder=20, fontsize=network_font_size)
+                ax.text(
+                    xmid1, ymid1, label, c="b", zorder=20, fontsize=network_font_size
+                )
         maxx = max([n.x for n in W.NODES])
         minx = min([n.x for n in W.NODES])
         maxy = max([n.y for n in W.NODES])
         miny = min([n.y for n in W.NODES])
-        buffxy = max([(maxx-minx)/10, (maxy-miny)/10])
-        plt.xlim([minx-buffxy, maxx+buffxy])
-        plt.ylim([miny-buffxy, maxy+buffxy])
-        plt.tight_layout()
+        buffxy = max([(maxx - minx) / 10, (maxy - miny) / 10])
+        ax.set_xlim([minx - buffxy, maxx + buffxy])
+        ax.set_ylim([miny - buffxy, maxy + buffxy])
+        fig.tight_layout()
         if W.save_mode:
-            plt.savefig(f"out{W.name}/network.png")
+            fig.savefig(f"out{W.name}/network.png")
         if W.show_mode:
-            plt.show()
+            fig.show()
+        if return_fig:
+            return fig
         else:
-            plt.close("all")
-    
+            fig.close("all")
+                
     def copy(W):
         """
         Copy the World object.
