@@ -380,7 +380,7 @@ class Analyzer:
     
     @catch_exceptions_and_warn()
     def time_space_diagram_density(
-        s, links=None, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, fig_return=False
+        s, links=None, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, return_fig_ax=False
     ):
         """
         Draws the time-space diagram of traffic density on specified links.
@@ -398,8 +398,8 @@ class Analyzer:
             The x-axis limits for the plot. Default is None, which means no limit.
         ylim : tuple of int, optional
             The y-axis limits for the plot. Default is None, which means no limit.
-        fig_return : bool, optional
-            If True, return the dict of figure objects. Default is False.
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax} for each link. Default is False.
         """
         if s.W.vehicle_logging_timestep_interval != 1:
             warnings.warn(
@@ -428,7 +428,7 @@ class Analyzer:
             l = s.W.get_link(lll)
 
             fig, ax = plt.subplots(figsize=figsize)
-            im = ax.imshow(
+            im = ax.imshow( # type: ignore
                 l.k_mat.T,
                 origin="lower",
                 aspect="auto",
@@ -463,23 +463,23 @@ class Analyzer:
                 ax.set_ylim([0, l.length])
             else:
                 ax.set_ylim(ylim)
-            fig.tight_layout()
-
-            if s.W.save_mode:
-                fig.savefig(f"out{s.W.name}/tsd_k_{l.name}.png")
-            if s.W.show_mode:
-                fig.show()
-            if fig_return:
-                figs[l.name] = fig
+            
+            if return_fig_ax:
+                figs[l.name] = {"fig": fig, "ax": ax}
             else:
+                fig.tight_layout()
+                if s.W.save_mode:
+                    fig.savefig(f"out{s.W.name}/tsd_k_{l.name}.png")
+                if s.W.show_mode:
+                    plt.show()
                 plt.close(fig)
 
-        if fig_return:
+        if return_fig_ax:
             return figs
 
     @catch_exceptions_and_warn()
     def time_space_diagram_traj_links(
-        s, linkslist, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, return_fig=False
+        s, linkslist, figsize=(12, 4), plot_signal=True, xlim=None, ylim=None, return_fig_ax=False
     ):
         """
         Draws the time-space diagram of vehicle trajectories for vehicles on concective links.
@@ -492,8 +492,8 @@ class Analyzer:
             The size of the figure to be plotted, default is (12,4).
         plot_signal : bool, optional
             Plot the signal red light.
-        return_fig : bool, optional
-            If True, return a dict of {link_name: fig} for each links group.
+        return_fig_ax : bool, optional
+            If True, return a dict of {link_name: {"fig": fig, "ax": ax}} for each links group. Default is False.
         """
         if s.W.vehicle_logging_timestep_interval != 1:
             warnings.warn(
@@ -562,26 +562,27 @@ class Analyzer:
             if ylim is not None:
                 ax.set_ylim(ylim)
             ax.grid()
-            fig.tight_layout()
-            if s.W.save_mode:
-                if len(links) == 1:
-                    fig.savefig(f"out{s.W.name}/tsd_traj_{s.W.get_link(links[0]).name}.png")
-                else:
-                    fig.savefig(
-                        f"out{s.W.name}/tsd_traj_links_{'-'.join([s.W.get_link(l).name for l in links])}.png"
-                    )
-            if s.W.show_mode:
-                fig.show()
-            if return_fig:
+            
+            if return_fig_ax:
                 key = "-".join([s.W.get_link(l).name for l in links])
-                fig_dict[key] = fig
+                fig_dict[key] = {"fig": fig, "ax": ax}
             else:
+                fig.tight_layout()
+                if s.W.save_mode:
+                    if len(links) == 1:
+                        fig.savefig(f"out{s.W.name}/tsd_traj_{s.W.get_link(links[0]).name}.png")
+                    else:
+                        fig.savefig(
+                            f"out{s.W.name}/tsd_traj_links_{'-'.join([s.W.get_link(l).name for l in links])}.png"
+                        )
+                if s.W.show_mode:
+                    plt.show()
                 plt.close(fig)
 
-        if return_fig:
+        if return_fig_ax:
             return fig_dict
     @catch_exceptions_and_warn()
-    def cumulative_curves(s, links=None, figsize=(6,4)):
+    def cumulative_curves(s, links=None, figsize=(6,4), return_fig_ax=False):
         """
         Plots the cumulative curves and travel times for the provided links.
 
@@ -592,6 +593,8 @@ class Analyzer:
             If not provided, the cumulative curves and travel times for all the links in the network will be plotted.
         figsize : tuple of int, optional
             The size of the figure to be plotted. Default is (6, 4).
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax1}. Default is False.
 
         Notes
         -----
@@ -613,7 +616,7 @@ class Analyzer:
             link = s.W.get_link(link)
 
             fig, ax1 = plt.subplots(figsize=figsize)
-            plt.title(link)
+            ax1.set_title(str(link)) # Using ax.set_title instead of plt.title
             ax2 = ax1.twinx()
 
             ax1.plot(range(0, s.W.TMAX, s.W.DELTAT), link.cum_arrival, "r-", label="arrival")
@@ -633,16 +636,19 @@ class Analyzer:
             ax2.legend(loc="upper right")
 
             ax1.grid()
-            plt.tight_layout()
-            if s.W.save_mode:
-                plt.savefig(f"out{s.W.name}/cumlative_curves_{link.name}.png")
-            if s.W.show_mode:
-                plt.show()
+            
+            if return_fig_ax:
+                return {"fig": fig, "ax": ax1}
             else:
-                plt.close("all")
+                plt.tight_layout()
+                if s.W.save_mode:
+                    fig.savefig(f"out{s.W.name}/cumlative_curves_{link.name}.png")
+                if s.W.show_mode:
+                    plt.show()
+                plt.close(fig) # Explicitly close the figure
 
     @catch_exceptions_and_warn()
-    def network(s, t=None, detailed=1, state_variables="density_speed", minwidth=0.5, maxwidth=12, left_handed=1, tmp_anim=0, figsize=(6,6), network_font_size=12, node_size=2, legend=True):
+    def network(s, t=None, detailed=1, state_variables="density_speed", minwidth=0.5, maxwidth=12, left_handed=1, tmp_anim=0, figsize=(6,6), network_font_size=12, node_size=2, legend=True, return_fig_ax=False):
         """
         Visualizes the entire transportation network and its current traffic conditions.
 
@@ -672,7 +678,9 @@ class Analyzer:
         node_size : int, optional
             The size of the nodes in the visualization. Default is 2.
         legend : bool, optional
-            If set to True, the legend will be displayed. Default is True.  
+            If set to True, the legend will be displayed. Default is True.
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax}. Default is False.
 
         Notes
         -----
@@ -688,13 +696,13 @@ class Analyzer:
         """
         s.compute_edie_state()
 
-        plt.figure(figsize=figsize, facecolor='white')
-        plt.subplot(111, aspect="equal")
-        plt.title(f"t = {t :>8} (s)")
+        fig = plt.figure(figsize=figsize, facecolor='white')
+        ax = fig.add_subplot(111, aspect="equal") # Use add_subplot to get ax
+        ax.set_title(f"t = {t :>8} (s)") # Use ax.set_title
         for n in s.W.NODES:
-            plt.plot(n.x, n.y, "ko", ms=node_size, zorder=10)
+            ax.plot(n.x, n.y, "ko", ms=node_size, zorder=10) # Use ax.plot
             if network_font_size > 0:
-                plt.text(n.x, n.y, n.name, c="g", horizontalalignment="center", verticalalignment="top", zorder=20, fontsize=network_font_size)
+                ax.text(n.x, n.y, n.name, c="g", horizontalalignment="center", verticalalignment="top", zorder=20, fontsize=network_font_size) # Use ax.text
         for l in s.W.LINKS:
             x1, y1 = l.start_node.x, l.start_node.y
             x2, y2 = l.end_node.x, l.end_node.y
@@ -737,11 +745,11 @@ class Analyzer:
 
                 xmid = [((xsize-i)*x1+(i+1)*x2)/(xsize+1)+vx for i in range(xsize)]
                 ymid = [((xsize-i)*y1+(i+1)*y2)/(xsize+1)+vy for i in range(xsize)]
-                plt.plot([x1]+xmid+[x2], [y1]+ymid+[y2], "k--", lw=0.25, zorder=5)
+                ax.plot([x1]+xmid+[x2], [y1]+ymid+[y2], "k--", lw=0.25, zorder=5) # Use ax.plot
                 for i in range(xsize-1):
-                    plt.plot([xmid[i], xmid[i+1]], [ymid[i], ymid[i+1]], c=c[i], lw=lw[i], zorder=6)
+                    ax.plot([xmid[i], xmid[i+1]], [ymid[i], ymid[i+1]], c=c[i], lw=lw[i], zorder=6) # Use ax.plot
                 if network_font_size > 0:
-                    plt.text(xmid[int(len(xmid)/2)], ymid[int(len(xmid)/2)], l.name, c="b", zorder=20, fontsize=network_font_size)
+                    ax.text(xmid[int(len(xmid)/2)], ymid[int(len(xmid)/2)], l.name, c="b", zorder=20, fontsize=network_font_size) # Use ax.text
             else:
                 #簡略モード
                 if state_variables == "density_speed":
@@ -768,10 +776,10 @@ class Analyzer:
 
                 xmid1, ymid1 = (2*x1+x2)/3+vx, (2*y1+y2)/3+vy
                 xmid2, ymid2 = (x1+2*x2)/3+vx, (y1+2*y2)/3+vy
-                plt.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], "k--", lw=0.25, zorder=5)
-                plt.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], c=c, lw=width, zorder=6, solid_capstyle="butt")
+                ax.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], "k--", lw=0.25, zorder=5) # Use ax.plot
+                ax.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], c=c, lw=width, zorder=6, solid_capstyle="butt") # Use ax.plot
                 if network_font_size > 0:
-                    plt.text(xmid1, ymid1, l.name, c="b", zorder=20, fontsize=network_font_size)
+                    ax.text(xmid1, ymid1, l.name, c="b", zorder=20, fontsize=network_font_size) # Use ax.text
         maxx = max([n.x for n in s.W.NODES])
         minx = min([n.x for n in s.W.NODES])
         maxy = max([n.y for n in s.W.NODES])
@@ -782,8 +790,8 @@ class Analyzer:
             buffx = buffy
         if buffy == 0:
             buffy = buffx
-        plt.xlim([minx-buffx, maxx+buffx])
-        plt.ylim([miny-buffy, maxy+buffy])
+        ax.set_xlim([minx-buffx, maxx+buffx]) # Use ax.set_xlim
+        ax.set_ylim([miny-buffy, maxy+buffy]) # Use ax.set_ylim
         
         if legend:
             # ヘッダー用のdummyアーティスト（凡例上はテキストだけを表示）
@@ -825,24 +833,24 @@ class Analyzer:
                 handles = [dummy_speed] + speed_handles + [dummy_volume] + volume_handles
                 labels  = [dummy_speed.get_label()] + speed_labels + [dummy_volume.get_label()] + volume_labels
 
+            ax.legend(handles, labels, ncol=1, handlelength=2, columnspacing=1.0, loc='best', frameon=True) # Use ax.legend
 
-            plt.legend(handles, labels, ncol=1, handlelength=2, columnspacing=1.0, loc='best', frameon=True)
-
-
-        plt.tight_layout()
-        if tmp_anim:
-            plt.savefig(f"out{s.W.name}/tmp_anim_{t}.png")
-            plt.close("all")
+        if return_fig_ax:
+            return {"fig": fig, "ax": ax}
         else:
-            if s.W.save_mode:
-                plt.savefig(f"out{s.W.name}/network{detailed}_{t}.png")
-            if s.W.show_mode:
-                plt.show()
+            plt.tight_layout()
+            if tmp_anim:
+                fig.savefig(f"out{s.W.name}/tmp_anim_{t}.png") # Use fig.savefig
+                plt.close(fig) # Explicitly close the figure
             else:
-                plt.close("all")
+                if s.W.save_mode:
+                    fig.savefig(f"out{s.W.name}/network{detailed}_{t}.png") # Use fig.savefig
+                if s.W.show_mode:
+                    plt.show()
+                plt.close(fig) # Explicitly close the figure
 
     @catch_exceptions_and_warn()
-    def network_average(s, minwidth=0.5, maxwidth=12, left_handed=1, figsize=(6,6), network_font_size=12, node_size=2, legend=True):
+    def network_average(s, minwidth=0.5, maxwidth=12, left_handed=1, figsize=(6,6), network_font_size=12, node_size=2, legend=True, return_fig_ax=False):
         """
         Visualizes the average traffic conditions of the network.
         This function generates a network visualization where links are colored based on congestion levels (travel time ratio) and sized according to traffic volume.
@@ -865,6 +873,8 @@ class Analyzer:
             Size of the nodes in the visualization. Default is 2.
         legend : bool, optional
             Whether to show the legend. Default is True (currently not implemented).
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax}. Default is False.
 
         Returns
         -------
@@ -880,12 +890,12 @@ class Analyzer:
         """
         df = s.link_to_pandas()
 
-        plt.figure(figsize=figsize)
-        plt.subplot(111, aspect="equal")
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_subplot(111, aspect="equal") # Use add_subplot to get ax
         for n in s.W.NODES:
-            plt.plot(n.x, n.y, "ko", ms=node_size, zorder=10)
+            ax.plot(n.x, n.y, "ko", ms=node_size, zorder=10) # Use ax.plot
             if network_font_size > 0:
-                plt.text(n.x, n.y, n.name, c="g", horizontalalignment="center", verticalalignment="top", zorder=20, fontsize=network_font_size)
+                ax.text(n.x, n.y, n.name, c="g", horizontalalignment="center", verticalalignment="top", zorder=20, fontsize=network_font_size) # Use ax.text
         volume_max = np.max(df["traffic_volume"])
         for l in s.W.LINKS:
             x1, y1 = l.start_node.x, l.start_node.y
@@ -911,18 +921,18 @@ class Analyzer:
 
             xmid1, ymid1 = (2*x1+x2)/3+vx, (2*y1+y2)/3+vy
             xmid2, ymid2 = (x1+2*x2)/3+vx, (y1+2*y2)/3+vy
-            plt.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], "k--", lw=0.25, zorder=5)
-            plt.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], c=c, lw=width, zorder=6, solid_capstyle="butt")
+            ax.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], "k--", lw=0.25, zorder=5) # Use ax.plot
+            ax.plot([x1, xmid1, xmid2, x2], [y1, ymid1, ymid2, y2], c=c, lw=width, zorder=6, solid_capstyle="butt") # Use ax.plot
             if network_font_size > 0:
-                plt.text(xmid1, ymid1, l.name, c="b", zorder=20, fontsize=network_font_size)
+                ax.text(xmid1, ymid1, l.name, c="b", zorder=20, fontsize=network_font_size) # Use ax.text
         
         maxx = max([n.x for n in s.W.NODES])
         minx = min([n.x for n in s.W.NODES])
         maxy = max([n.y for n in s.W.NODES])
         miny = min([n.y for n in s.W.NODES])
         buffxy = max([(maxx-minx)/10, (maxy-miny)/10])
-        plt.xlim([minx-buffxy, maxx+buffxy])
-        plt.ylim([miny-buffxy, maxy+buffxy])
+        ax.set_xlim([minx-buffxy, maxx+buffxy]) # Use ax.set_xlim
+        ax.set_ylim([miny-buffxy, maxy+buffxy]) # Use ax.set_ylim
 
         if legend:
             # ヘッダー用のdummyアーティスト（凡例上はテキストだけを表示）
@@ -945,17 +955,17 @@ class Analyzer:
             handles = [dummy_speed] + speed_handles + [dummy_volume] + volume_handles
             labels  = [dummy_speed.get_label()] + speed_labels + [dummy_volume.get_label()] + volume_labels
 
-            plt.legend(handles, labels, ncol=1, handlelength=2, columnspacing=1.0, loc='best', frameon=True)
+            ax.legend(handles, labels, ncol=1, handlelength=2, columnspacing=1.0, loc='best', frameon=True) # Use ax.legend
 
-
-        plt.tight_layout()
-
-        if s.W.save_mode:
-            plt.savefig(f"out{s.W.name}/network_average.png")
-        if s.W.show_mode:
-            plt.show()
+        if return_fig_ax:
+            return {"fig": fig, "ax": ax}
         else:
-            plt.close("all")
+            plt.tight_layout()
+            if s.W.save_mode:
+                fig.savefig(f"out{s.W.name}/network_average.png") # Use fig.savefig
+            if s.W.show_mode:
+                plt.show()
+            plt.close(fig) # Explicitly close the figure
 
     @catch_exceptions_and_warn()
     def network_pillow(s, t=None, detailed=1, state_variables="density_speed", minwidth=0.5, maxwidth=12, left_handed=1, tmp_anim=0, figsize=6, network_font_size=20, node_size=2, image_return=0, legend=True):
@@ -1465,7 +1475,7 @@ class Analyzer:
             s.W.Q_AREA[links][i] = dn/an
 
     @catch_exceptions_and_warn()
-    def macroscopic_fundamental_diagram(s, kappa=0.2, qmax=1, figtitle="", links=None, fname="", figsize=(4,4)):
+    def macroscopic_fundamental_diagram(s, kappa=0.2, qmax=1, figtitle="", links=None, fname="", figsize=(4,4), return_fig_ax=False):
         """
         Plots the Macroscopic Fundamental Diagram (MFD) for the provided links.
 
@@ -1482,6 +1492,8 @@ class Analyzer:
             File name for saving (postfix). Default is "".
         figsize : tuple of int, optional
             The size of the figure to be plotted. Default is (4, 4).
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax}. Default is False.
 
         Notes
         -----
@@ -1496,24 +1508,28 @@ class Analyzer:
         links = frozenset(links)
         s.compute_mfd(links)
 
-        plt.figure(figsize=figsize)
-        plt.title(f"{figtitle} (# of links: {len(links)})")
-        plt.plot(s.W.K_AREA[links], s.W.Q_AREA[links], "ko-")
-        plt.xlabel("network average density (veh/m)")
-        plt.ylabel("network average flow (veh/s)")
-        plt.xlim([0, kappa])
-        plt.ylim([0, qmax])
-        plt.grid()
-        plt.tight_layout()
-        if s.W.save_mode:
-            plt.savefig(f"out{s.W.name}/mfd{fname}.png")
-        if s.W.show_mode:
-            plt.show()
+        fig = plt.figure(figsize=figsize)
+        ax = fig.gca() # Get current axes
+        ax.set_title(f"{figtitle} (# of links: {len(links)})") # Use ax.set_title
+        ax.plot(s.W.K_AREA[links], s.W.Q_AREA[links], "ko-") # Use ax.plot
+        ax.set_xlabel("network average density (veh/m)") # Use ax.set_xlabel
+        ax.set_ylabel("network average flow (veh/s)") # Use ax.set_ylabel
+        ax.set_xlim([0, kappa]) # Use ax.set_xlim
+        ax.set_ylim([0, qmax]) # Use ax.set_ylim
+        ax.grid() # Use ax.grid
+        
+        if return_fig_ax:
+            return {"fig": fig, "ax": ax}
         else:
-            plt.close("all")
+            plt.tight_layout()
+            if s.W.save_mode:
+                fig.savefig(f"out{s.W.name}/mfd{fname}.png") # Use fig.savefig
+            if s.W.show_mode:
+                plt.show()
+            plt.close(fig) # Explicitly close the figure
 
     @catch_exceptions_and_warn()
-    def plot_vehicle_log(s, vehname):
+    def plot_vehicle_log(s, vehname, return_fig_ax=False):
         """
         Plots the driving link and speed for a single vehicle.
 
@@ -1521,6 +1537,8 @@ class Analyzer:
         ----------
         vehname : str
             The name of the vehicle for which the driving link and speed are to be plotted.
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax1}. Default is False.
 
         Notes
         -----
@@ -1534,37 +1552,41 @@ class Analyzer:
         veh = s.W.VEHICLES[vehname]
 
         fig, ax1 = plt.subplots()
-        plt.title(f"vehicle: {veh.name}")
+        ax1.set_title(f"vehicle: {veh.name}") # Use ax.set_title
         ax1.fill_between(veh.log_t, 0, veh.log_v, color="c", zorder=10)
         ax1.set_ylabel('speed (m/s)', color='c')
-        plt.ylim([0, None])
-        plt.xlabel("time (s)")
+        ax1.set_ylim([0, None]) # Use ax.set_ylim
+        ax1.set_xlabel("time (s)") # Use ax.set_xlabel
 
         ax2 = ax1.twinx()
         vehlinks = [str(l.name) if l != -1 else "not in network" for l in veh.log_link]
         ax2.plot([veh.log_t[i] for i in lange(veh.log_t) if veh.log_state[i] != "home"], [vehlinks[i] for i in lange(vehlinks) if veh.log_state[i] != "home"], 'k-', zorder=20)
         ax2.grid()
         ax2.set_ylabel('link', color='k')
-        plt.ylim([0, None])
-        plt.tight_layout()
-
-        if s.W.save_mode:
-            plt.savefig(f"out{s.W.name}/vehicle_{vehname}.png")
-        if s.W.show_mode:
-            plt.show()
+        ax2.set_ylim([0, None]) # Use ax.set_ylim for ax2 as well
+        
+        if return_fig_ax:
+            return {"fig": fig, "ax": ax1}
         else:
-            plt.close("all")
+            plt.tight_layout()
+            if s.W.save_mode:
+                fig.savefig(f"out{s.W.name}/vehicle_{vehname}.png") # Use fig.savefig
+            if s.W.show_mode:
+                plt.show()
+            plt.close(fig) # Explicitly close the figure
 
 
     @catch_exceptions_and_warn()
-    def plot_vehicles_log(s, vehnamelist):
+    def plot_vehicles_log(s, vehnamelist, return_fig_ax=False):
         """
         Plots the driving link and speed for a single vehicle.
 
         Parameters
         ----------
-        vehname : str
-            The name of the vehicle for which the driving link and speed are to be plotted.
+        vehnamelist : list of str
+            The list of names of the vehicles for which the driving link and speed are to be plotted.
+        return_fig_ax : bool, optional
+            If True, return a dict of {"fig": fig, "ax": ax}. Default is False.
 
         Notes
         -----
@@ -1577,22 +1599,25 @@ class Analyzer:
         
         vehs = [s.W.VEHICLES[vehname] for vehname in vehnamelist]
 
-        plt.figure()
+        fig = plt.figure()
+        ax = fig.gca() # Get current axes
         for veh in vehs:
             vehlinks = [str(l.name) if l != -1 else "not in network" for l in veh.log_link]
-            plt.plot([veh.log_t[i] for i in lange(veh.log_t) if veh.log_state[i] != "home"], [vehlinks[i] for i in lange(vehlinks) if veh.log_state[i] != "home"], c=veh.color, label=veh.name)
-        plt.grid()
-        plt.ylabel('link')
-        plt.legend()
-        plt.ylim([0, None])
-        plt.tight_layout()
-
-        if s.W.save_mode:
-            plt.savefig(f"out{s.W.name}/vehicles_{vehnamelist}.png")
-        if s.W.show_mode:
-            plt.show()
+            ax.plot([veh.log_t[i] for i in lange(veh.log_t) if veh.log_state[i] != "home"], [vehlinks[i] for i in lange(vehlinks) if veh.log_state[i] != "home"], c=veh.color, label=veh.name) # Use ax.plot
+        ax.grid() # Use ax.grid
+        ax.set_ylabel('link') # Use ax.set_ylabel
+        ax.legend() # Use ax.legend
+        ax.set_ylim([0, None]) # Use ax.set_ylim
+        
+        if return_fig_ax:
+            return {"fig": fig, "ax": ax}
         else:
-            plt.close("all")
+            plt.tight_layout()
+            if s.W.save_mode:
+                fig.savefig(f"out{s.W.name}/vehicles_{vehnamelist}.png") # Use fig.savefig
+            if s.W.show_mode:
+                plt.show()
+            plt.close(fig) # Explicitly close the figure
 
 
     def vehicles_to_pandas(s):
